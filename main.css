@@ -1,0 +1,106 @@
+<style>
+/**
+ * タイトルヘッダ
+ */
+h1 {
+    border-left: 5px solid #000000;
+    border-bottom: 1px solid #000000;
+    width: 930px;
+    padding: 5px 15px;
+}
+
+
+/**
+ * table 共通 css
+ */
+table tr th,
+table tr td {
+    padding: 0 10px;
+    border: 1px solid #222222;
+    vertical-align: middle;
+}
+
+/**
+ * table ヘッダ css
+ */
+table tr th {
+    text-align: center;
+    font-weight: bold;
+}
+
+/**
+ * form css
+ */
+.form {
+  margin-bottom: 10px;
+  border-spacing: 0px 20px;
+}
+
+/**
+ * 日付　出力エリア
+ */
+input[name="date"]{
+  width: 150px;
+  height: 40px;
+}
+
+/**
+ * イベントタイトル　出力エリア
+ */
+#eventTitle{
+  width: 370px;
+  height: 40px;
+}
+
+/**
+ * チャート　出力エリア
+ */
+canvas{
+  width: 460px;
+  height: 300px;
+}
+
+/**
+ * 「確認」「一覧作成」ボタン
+ */
+input[name="btn"]{
+  width: 150px;
+  height: 50px;
+  font-size: 100%;
+}
+
+/**
+ * 「一覧作成」ボタン
+ */
+#listBtnArea {
+    padding: 40px 0px;
+    border: 0px;
+    vertical-align: middle;
+}
+ 
+input[name="createList"]{
+  width: 100px;
+  height: 40px;
+  font-size: 100%;
+  margin-bottom: 40px;
+}
+
+/**
+ * statistic css
+ */
+#statistic {
+  margin-top: 40px;
+}
+
+/**
+ * loading css
+ */
+#loading {
+  width: 970px;
+  background: white url(https://drive.google.com/uc?export=view&id=1Utg5pA85CgwJpXpRpTtN-oiws0HDv4aj);
+  background-repeat: no-repeat;  
+  background-position: center center;
+  opacity: 0.3;
+}
+
+</style>

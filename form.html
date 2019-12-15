@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+  <meta charset="utf-8">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+  <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.1.4/Chart.min.js"></script>
+  <?!= HtmlService.createHtmlOutputFromFile('main.css').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('picker.js').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('picker.date.js').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('picker.time.js').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('legacy.js').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('ja_JP.js').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('default.css').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('default.date.css').getContent(); ?>
+  </head>
+  <body>
+  <h1>参加者リスト</h1>
+    <form>  
+        <table class='form'>  
+            <tbody>  
+                <tr>  
+                  <th>日付</th>  
+                  <td>
+                    <input type="text" name="date" id="datepicker">
+                  </td>
+                </tr>
+                <tr>
+                  <th>イベント</th>
+                    <td>
+                      <select id="eventTitle">
+                        <option name="init">-- イベントを選択してください --</option>
+                      </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <input type="button" name="btn" value="確認">
+    </form>
+    <table id="statistic">
+      <tbody id="result">
+        <tr>
+          <th colspan="2">サマリー(人数)</th>
+          <th colspan="2">男女比率(%)</th>
+        </tr>
+        <tr>
+          <td id="summary" colspan="2"><canvas id="chart1"></canvas></td>
+          <td id="ratio" colspan="2"><canvas id="chart2"></canvas></td>
+        </tr>
+        <tr>
+        <th id="representative" colspan="4"></th>
+        </tr>
+        <tr>
+          <th id="partSum"></th>
+          <th id="nonPartSum"></th>
+          <th id="unDecSum"></th>
+          <th id="unAnsSum"></th>
+        </tr>
+      </tbody>
+      <tr>
+        <td id="listBtnArea">
+          <input type="button" name="createList" value="一覧作成">
+        </td>
+      </tr>
+    </table>
+<!--=================================================================================
+// Javascript Start
+===================================================================================-->
+<script type="text/JavaScript">
+/**
+ * 「カレンダー」表示処理
+ */
+ $(function(){
+   
+   $('#datepicker').pickadate({
+    format: 'yyyy/mm/dd'
+   });
+      
+ });
+ 
+ /**
+  * 各ゲストステータスの人数を円グラフで表示
+  * ラベルの位置の変え方分かりませーん。
+  *
+  */
+  function drawStatusSum(partCount,noPartCount,unDecCount,unAnsCount){
+    
+    // 残骸処理
+    $('#chart1').remove();
+    $("#summary").append('<canvas id="chart1"></canvas>');
+   
+    var ctx = document.getElementById("chart1").getContext('2d');
+    ctx.canvas.width = 460;
+    ctx.canvas.height = 300;
+    var chart1 = new Chart(ctx, {
+        type: 'pie',
+        data: {
+               labels: ["参加", "不参加", "未定", "未回答"],
+               datasets: [{
+                           backgroundColor: [
+                                             "#66FF99",
+                                             "#DA70D6",
+                                             "#FF367F",
+                                             "#EEEEEE"
+                                            ],
+                           data: [partCount, noPartCount, unDecCount, unAnsCount]
+               }]
+        }
+    });
+    
+  }
+     
+/**
+ * 参加者における男女の割合を円グラフで表示
+ * ラベルの位置の変え方分かりませーん。
+ *
+ */
+ function drawSexRatio(maleRatio,femaleRatio){
+   
+   // 残骸処理
+   $('#chart2').remove();
+   $("#ratio").append('<canvas id="chart2"></canvas>');
+   
+   var ctx = document.getElementById("chart2").getContext('2d');
+   ctx.canvas.width = 460;
+   ctx.canvas.height = 300;
+   var chart2 = new Chart(ctx, {
+       type: 'pie',
+       data: {
+              labels: ["男性", "女性"],
+              datasets: [{
+                          backgroundColor: [
+                                            "#0099FF",
+                                            "#FF99FF"
+                                           ],
+                          data: [maleRatio, femaleRatio]
+              }]
+       }
+   });
+   
+}
+
+/**
+ * プルダウンリスト初期化処理
+ *
+ */
+ function initEventTitleList(){
+ 
+   var elements = $("#eventTitle").children().length;
+
+   if (elements != 1){
+        $("#eventTitle").children().remove();
+        $("#eventTitle").append('<option name="init">--イベントを選択してください--</option>');
+   }
+   
+ }
+
+/**
+ * リスト一覧 初期化処理
+ *
+ */
+ function initAttendanceList(){
+ 
+   var elements = $("#result tr:gt(3)").length;
+
+   if (elements >= 1){
+        $("#result tr:gt(3)").remove();
+        $("#representative").text('');
+        $("#partSum").text('');
+        $("#nonPartSum").text('');
+        $("#unDecSum").text('');
+        $("#unAnsSum").text('');
+        $('input[name="confirmDate"]').remove();
+        $('input[name="confirmEventTitle"]').remove();
+        $('input[name="confirmPartCount"]').remove();
+   }
+   
+ }
+
+/**
+ * 対象日のイベント一覧をプルダウンリストに出力する処理
+ *
+ */
+ $(function(){
+ 
+     $('#datepicker').change(function(){
+ 
+       google.script.run.withSuccessHandler(result).getEventTitles(this.value);
+   
+         function result(eventTitles){
+     
+           //プルダウンリスト初期化
+           initEventTitleList();
+       
+           if (eventTitles.length > 0){
+           
+             for (var i = 0; i < eventTitles.length; i++){
+                $("#eventTitle").append('<option name="eventTitle">'+eventTitles[i]+'</option>');
+             }
+             
+           }else{
+           
+                $("#eventTitle").append('<option name="none">イベントはありません</option>');
+                
+           }
+         }
+
+     });
+ });
+  
+/**
+ * 入力項目チェック
+ *
+ */
+ function validationCheck(date,eventTitle){
+  
+   if (!date){
+   
+       swal("日付エラー", "日付が選択されていません", "warning");
+       return false;
+       
+   } else if (eventTitle == $('option[name=init]').val() || eventTitle == $('option[name=none]').val()){
+   
+       swal("イベントエラー", "イベントが選択されていません", "warning");
+       return false;
+       
+   }
+      
+     return true;
+ }
+
+/**
+ * 全社員のイベント参加可否結果を出力
+ *
+ */
+ $(function(){
+     $('input[name=btn]').on('click',function(){
+
+       var date = this.parentNode.date.value;
+       var eventTitle = this.parentNode.eventTitle.value;
+       
+       // 後続処理の可否を判定
+       var goCheck = validationCheck(date,eventTitle);       
+       if(!goCheck){
+         return;
+       }
+       
+       // 処理開始前のぐるぐるを表示
+    　 dispLoading();
+      
+       // 一覧を初期化
+       initAttendanceList();
+       
+       // 各ステータス人数のカウント
+       var partCount = 0;
+       var noPartCount = 0;
+       var unDecCount = 0;
+       var unAnsCount = 0;
+       
+       // 確定した日付とイベント名
+       $('input[name="btn"]').after('<input type="hidden" name="confirmDate" value="'+date+'">');
+       $('input[name="btn"]').after('<input type="hidden" name="confirmEventTitle" value="'+eventTitle+'">');
+       
+
+       google.script.run
+                        .withSuccessHandler(result)
+                        .withFailureHandler(failure)
+                        .getGuestData(date,eventTitle);
+
+         function result(employeesInfo){
+
+           var html = ''; 
+           var maxCount = employeesInfo[employeesInfo.length-3].maxCount;
+        
+           for (var i = 1; i <= maxCount; i++){
+              html += '<tr><td id="part' + i + '"></td><td id="noPart' + i + '"></td><td id="unDec' + i + '"></td><td id="unAns' + i + '"></td>';
+           }
+           
+           $("#result").append(html);
+          
+           var last = $('<tr><td id="part' + maxCount + '"></td><td id="noPart' + maxCount + '"></td><td id="unDec' + maxCount + '"></td><td id="unAns' + maxCount + '"></td>');
+           
+           last.ready(function () {
+         
+             for (var j = 0; j < employeesInfo.length-3; j++){
+             
+               if ("INVITED" == employeesInfo[j].status){
+                   unAnsCount += 1;
+                   $('#unAns'+unAnsCount).text(employeesInfo[j].name);
+               } else if ("YES" == employeesInfo[j].status){
+                   partCount += 1;
+                   $('#part'+partCount).text(employeesInfo[j].name);
+               } else if ("NO" == employeesInfo[j].status){
+                  noPartCount += 1;
+                  $('#noPart'+noPartCount).text(employeesInfo[j].name);
+               } else if ("MAYBE" == employeesInfo[j].status){
+                   unDecCount += 1;
+                   $('#unDec'+unDecCount).text(employeesInfo[j].name);
+               }
+            
+            }
+          });
+         
+         // 各ステータスの合計人数を出力
+         $("#partSum").text('参加('+partCount+'人)');
+         $("#nonPartSum").text('不参加('+noPartCount+'人)');
+         $("#unDecSum").text('未定('+unDecCount+'人)');
+         $("#unAnsSum").text('未回答('+unAnsCount+'人)');
+          
+         // サマリーグラフを描画
+         drawStatusSum(partCount,noPartCount,unDecCount,unAnsCount);
+         // 男女比グラフを描画
+         drawSexRatio(employeesInfo[employeesInfo.length-2].maleRatio,employeesInfo[employeesInfo.length-2].femaleRatio);
+         
+         // イベント代表者名出力
+         $("#representative").text('代表者：'+ employeesInfo[employeesInfo.length-1].name);
+         
+         // 代表者のみ「リマインド」ボタン活性化
+         // 「リマインド」機能は余分機能と判断し未実装。今後需要があれば実装する事とする。
+         // 実装時は「<input type="button" name="remind" value="リマインド">」タグをつける
+         //if (employeesInfo[employeesInfo.length-1].representative == employeesInfo[employeesInfo.length-1].accessUser){
+         //  $('input[name="remind"]').prop('disabled', false);         
+         //} else {
+         //  $('input[name="remind"]').prop('disabled', true);
+         //}
+         
+         // 確定した日付とイベント名
+         $('input[name="createList"]').after('<input type="hidden" name="confirmPartCount" value="'+ partCount +'">');
+                 
+         //処理終了後のぐるぐる解除
+         removeLoading();
+         
+        }
+        function failure(employeesInfo){
+          swal("社員情報の取得に失敗しました", "有識者に問い合わせて下さい", "error");
+        }
+    });
+ });
+ 
+/**
+ * 参加者一覧をスプレッドシートに出力
+ *
+ */
+ $(function(){
+     $('input[name=createList]').on('click',function(){
+       
+     swal({
+        title: "参加者リストを作成します",
+        text: "マイドライブに保存します。よろしいですか？",
+        icon: "warning",
+        buttons: {
+          cancel: "cancel",
+          OK: true,
+       }
+     })
+      .then((isConfirm) => {
+       
+       if (isConfirm){
+       // 2度押し防止
+       $('input[name="createList"]').prop('disabled', true);
+       
+       // 参加者情報を収集
+       var participants = new Array();
+       var date = $('input[name="confirmDate"]').val();
+       var eventTitle = $('input[name="confirmEventTitle"]').val();
+       var maxcount = $('input[name="confirmPartCount"]').val();
+       
+       if (!maxcount){
+         swal("作成できません", "参加者がいないか、一覧表を取得してください", "warning");
+         $('input[name="createList"]').prop('disabled', false);
+         return;
+       }
+       
+       for (var i = 1; i <= maxcount; i++){
+         participants.push($('#part' + i).text());
+       }
+      
+      google.script.run.withSuccessHandler(result)
+                       .withFailureHandler(failure)
+                       .outputSheet(date,eventTitle,participants);
+      
+        function result(eventTitles){
+          swal("作成完了", "マイドライブに保存しました", "success");
+          $('input[name="createList"]').prop('disabled', false);
+        }
+        function failure(eventTitles){
+          swal("作成失敗", "有識者に問い合わせて下さい", "error");
+          $('input[name="createList"]').prop('disabled', false);
+        }
+      }
+      });
+     });
+});
+ 
+ /**
+ * ぐるぐる表示
+ *
+ */
+ function dispLoading(){
+  
+  $("#statistic").wrap("<div id='loading'>");
+  
+}
+
+/**
+ * ぐるぐる削除
+ *
+ */
+function removeLoading(){
+
+  $("#statistic").unwrap();
+  
+}
+</script>
+<!--=================================================================================
+// Javascript End
+===================================================================================-->
+  </body>
+</html>
